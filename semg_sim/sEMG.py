@@ -1,10 +1,10 @@
-from MU import MotorUnit
+from .MU import MotorUnit # Modified from original version: import error when no dot
 import numpy as np
 import matplotlib.pyplot as plt
 import random
 import scipy.io
 from matplotlib.ticker import NullFormatter
-plt.rcParams['font.family'] = 'Times New Roman'
+#plt.rcParams['font.family'] = 'Times New Roman'
 
 class SurfaceEMG:
   """A class that erepresnts a surface EMG (sEMG).
@@ -54,10 +54,14 @@ class SurfaceEMG:
   ### Sampling parameters
     self.simulation_time:int = 30 # Total simulation time in seconds.
     self.sampling_rate:int = 10000 # Sample rate (10 kHz).
-    self.ramp:np.array = np.array([5, 20, 5]) # Up, stable, and down times of the ramp in seconds.
+    # One float introduced in the ramp array, otherwise execution error when introducing float in ramp at execution, (see line 148)
+    self.ramp:np.array = np.array([0.1, 20, 5]) # Up, stable, and down times of the ramp in seconds.
     self.maximum_excitation_level:int = 20 # Maximum excitation level as a percentage of maximum.
     self.signal_to_noise_ratio_dB:float = 3 # Signal to noise ratio for Gaussian noise. SNR = 0 returns EMG without noise.
     self.signal_amplitude_offset:float = 0 # (mV) Add a value for signal amplitude offset from 0.
+
+    # Adding some flat signal before the burst
+    self.initial_rest_time = 1. # Resting time (no excitation) before the excitation starts in seconds
     
   ### Motorneuron parameters
     self.number_of_motor_units:int = 200 # Number of motoneurons (units) in the pool.
@@ -126,6 +130,7 @@ class SurfaceEMG:
     maximum_excitation_level = self.maximum_excitation_level
     ramp = self.ramp
     inter_spike_interval_coefficient_variation = self.inter_spike_interval_coefficient_variation 
+    #initial_rest_time = self.initial_rest_time # is it good practise or useless to add this?
 
   ### Time vector
     time_array = np.linspace(0, simulation_time, simulation_time*sampling_rate)
@@ -142,7 +147,10 @@ class SurfaceEMG:
     maximum_excitation = recruitmenexcitatory_drive_thresholdold_excitation[-1] + (peak_firing_rate_i[-1] - minimum_firing_rate) / excitatory_gain
 
   ### Define the excitatory drive function.
-    excitatory_drive_function = np.concatenate((np.linspace(0, maximum_excitation * (maximum_excitation_level/100), ramp[0] * sampling_rate), np.ones(ramp[1] * sampling_rate) * maximum_excitation * (maximum_excitation_level/100), (np.flip(np.linspace(0, maximum_excitation * (maximum_excitation_level/100),ramp[2] * sampling_rate)))))
+  
+  # TEST: adding (np.zeros(10000) at beginning of drive function to have 10000 samples of rest before excitation starts np.zeros(10000),  TODO CHECK!!!!
+  # transforming all sizes of segments into ints (and truncating where not an actual integer) as ramp might be filled with floats
+    excitatory_drive_function = np.concatenate((np.zeros(int(self.initial_rest_time * sampling_rate)), np.linspace(0, maximum_excitation * (maximum_excitation_level/100), int(ramp[0] * sampling_rate)), np.ones(int(ramp[1] * sampling_rate)) * maximum_excitation * (maximum_excitation_level/100), (np.flip(np.linspace(0, maximum_excitation * (maximum_excitation_level/100),int(ramp[2] * sampling_rate))))))
 
   ### Initialize the firing times for each motoneuron.
     firing_times_motor_unit = [[] for i in range(number_of_motor_units)]
@@ -364,14 +372,15 @@ class SurfaceEMG:
     return simulations
   
   #########################  4  #########################   Adds Noise To The Simulation  ##########################    #######################
-  def simulate_surface_emg(self):
+  def simulate_surface_emg(self, ReturnNoiselessToo = False):
     """Adds noise to the entire simulation.
 
     Arguments:
     simulations: simulate_surface_emg
+    ReturnNoiselessToo: bolean, dfac, default False: if True, return a tuple (electrode_sum_with_noise, electrode_sum)
 
     Returns:
-      A list containing an array with the simulated surface electromyography with added noise.
+      A list containing an array with the simulated surface electromyography with added noise, see ReturnNoiselessToo for details
     """
     ...
 
@@ -419,8 +428,10 @@ class SurfaceEMG:
       #plt.legend()
       #plt.show()
 
+      """
       fig = plt.figure()
       ax = plt.subplot(2,1,1)
+      # The signal seems pre-amplified by a factor 1000: that makes the values I get more consistent with my experimental ones
       plt.plot(time_array, electrode_sum_with_noise[electrod_postion-1, :] * 10**3, label = 'sEMG with noise')
       plt.plot(time_array, electrode_sum[electrod_postion-1, :] * 10**3, label = 'Original sEMG')
       plt.legend()
@@ -440,9 +451,11 @@ class SurfaceEMG:
       plt.show()
 
       scipy.io.savemat('sEMG_without_Noise' + '_' + str(number_of_motor_units) + 'MUs_' + str(number_of_electrodes_z) + 'X' + str(number_of_electrodes_x)  + '.mat', {'output': -electrode_sum})
-
-
-      return electrode_sum_with_noise
+      """
+      if ReturnNoiselessToo:
+        return (electrode_sum_with_noise, electrode_sum)
+      else: # original function: return only the noisy simulated EMG
+        return electrode_sum_with_noise
 
   #########################  5  #########################   Plot Suface Electromyography Array without Noise  ##########################    #######################
   def plot_suface_emg_array_no_noise(self):

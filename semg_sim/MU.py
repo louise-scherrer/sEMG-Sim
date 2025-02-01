@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import NullFormatter
 import scipy.io
-plt.rcParams['font.family'] = 'Times New Roman'
+#plt.rcParams['font.family'] = 'Times New Roman'
 
 class MotorUnit:
   """A class that represents a motor unit (MU).

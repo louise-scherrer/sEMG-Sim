@@ -163,7 +163,7 @@ distances = motor_unit.get_tripole_distance()
 motor_unit.simulate_fibre_action_potential()
 
 # Plot the the single fibre's action potential.
-motor_unit.plot_fibre_action_potential
+motor_unit.plot_fibre_action_potential()
 
 # Change values.
 #motor_unit.motor_unit_radius = 1
